@@ -4,109 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Infinite Craft</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #1e1e2f, #121212);
-            color: #fff;
-        }
-
-        .container {
-            text-align: center;
-            background: #252525;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-            width: 100%;
-            max-width: 600px;
-        }
-
-        .container h1 {
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .input-group input {
-            padding: 0.5rem;
-            font-size: 1rem;
-            border: 1px solid #444;
-            border-radius: 4px;
-            width: 100%;
-            background-color: #333;
-            color: #fff;
-        }
-
-        button {
-            padding: 0.7rem;
-            font-size: 1rem;
-            color: #fff;
-            background-color: #007bff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        .result-box {
-            display: flex;
-            align-items: center;
-            justify-content: start;
-            gap: 1rem;
-            margin-top: 1rem;
-            padding: 1rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-            background-color: #333;
-            position: relative;
-            transition: box-shadow 0.3s;
-        }
-
-        .result-box.is-new {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 0, 0, 0.8);
-        }
-
-        .emoji {
-            font-size: 2rem;
-        }
-
-        .text {
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        .loading {
-            margin-top: 1rem;
-            font-size: 1rem;
-            color: #aaa;
-        }
-
-        .output {
-            margin-top: 1rem;
-            text-align: left;
-            background: #444;
-            padding: 1rem;
-            border-radius: 8px;
-            white-space: pre-wrap;
-            font-size: 1rem;
-            color: #fff;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
@@ -118,31 +16,15 @@
         <button id="combineBtn">Combine</button>
 
         <div id="resultContainer"></div>
+
         <div id="loading" class="loading" style="display: none;">Loading...</div>
-        <div id="output" class="output" style="display: none;"></div>
     </div>
 
     <script>
-        function formatItem(item) {
-            return item.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-        }
-
-        async function getResponse(url, headers) {
-            try {
-                const response = await fetch(url, { headers });
-                if (!response.ok) throw new Error(response.status);
-                return { status: response.status, data: await response.json() };
-            } catch (error) {
-                console.error(error);
-                return { status: error.message, data: null };
-            }
-        }
-
         document.getElementById('combineBtn').addEventListener('click', async () => {
-            const firstItem = document.getElementById('firstItem').value.trim();
-            const secondItem = document.getElementById('secondItem').value.trim();
+            const firstItem = document.getElementById('firstItem').value;
+            const secondItem = document.getElementById('secondItem').value;
             const resultContainer = document.getElementById('resultContainer');
-            const output = document.getElementById('output');
             const loadingIndicator = document.getElementById('loading');
 
             if (!firstItem || !secondItem) {
@@ -151,72 +33,35 @@
             }
 
             resultContainer.innerHTML = '';
-            output.style.display = 'none';
             loadingIndicator.style.display = 'block';
 
-            const [formattedFirst, formattedSecond] = [formatItem(firstItem), formatItem(secondItem)].sort();
-            const encodedFirst = encodeURIComponent(formattedFirst);
-            const encodedSecond = encodeURIComponent(formattedSecond);
-            const headers = {
-                "sec-ch-ua-platform": "Android",
-                "User-Agent": "Mozilla/5.0"
-            };
+            try {
+                const response = await fetch(`https://neal.fun/api/infinite-craft/pair?ref=app&first=${encodeURIComponent(firstItem)}&second=${encodeURIComponent(secondItem)}`);
+                const data = await response.json();
 
-            const checkUrl = `https://neal.fun/api/infinite-craft/check?ref=app&first=${encodedFirst}&second=${encodedSecond}&result=A`;
-            const pairUrl = `https://neal.fun/api/infinite-craft/pair?ref=app&first=${encodedFirst}&second=${encodedSecond}`;
-
-            const checkResponse = await getResponse(checkUrl, headers);
-            const isFirstDiscovery = checkResponse.status === 500;
-
-            const pairResponse = await getResponse(pairUrl, headers);
-            if (!pairResponse.data) {
-                alert('Failed to get a valid response. Please try again.');
                 loadingIndicator.style.display = 'none';
-                return;
+
+                const resultBox = document.createElement('div');
+                resultBox.className = 'result-box';
+                if (data.isNew) resultBox.classList.add('is-new');
+
+                const emojiSpan = document.createElement('span');
+                emojiSpan.className = 'emoji';
+                emojiSpan.textContent = data.emoji;
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'text';
+                textSpan.textContent = data.result;
+
+                resultBox.appendChild(emojiSpan);
+                resultBox.appendChild(textSpan);
+
+                resultContainer.appendChild(resultBox);
+            } catch (error) {
+                loadingIndicator.style.display = 'none';
+                alert('An error occurred while fetching the result.');
+                console.error(error);
             }
-
-            const { result, emoji, isNew } = pairResponse.data;
-
-            const resultBox = document.createElement('div');
-            resultBox.className = 'result-box';
-            if (isNew) resultBox.classList.add('is-new');
-
-            const emojiSpan = document.createElement('span');
-            emojiSpan.className = 'emoji';
-            emojiSpan.textContent = emoji;
-
-            const textSpan = document.createElement('span');
-            textSpan.className = 'text';
-            textSpan.textContent = `${formattedFirst} + ${formattedSecond} = ${result}`;
-
-            resultBox.appendChild(emojiSpan);
-            resultBox.appendChild(textSpan);
-
-            resultContainer.appendChild(resultBox);
-
-            let additionalOutput = `${formattedFirst} + ${formattedSecond} = ${result}\nEmoji: ${emoji}`;
-            if (result === "Nothing") {
-                if (checkResponse.status === 500) {
-                    additionalOutput += "\n🛑 No Result or Censored.";
-                } else {
-                    const checkValid = checkResponse.data?.valid;
-                    if (checkValid) {
-                        additionalOutput += "\n📌 Please share the recipe and output to the infinite craft Discord Server!!!!!!.";
-                    } else {
-                        additionalOutput += "\n⚠️ Manual Override or 'Nothing' Outputted by LLM.";
-                    }
-                }
-            }
-            if (isFirstDiscovery && checkResponse.status !== 500) {
-                additionalOutput += "\n➕ Recipe First Discovery";
-            }
-            if (isNew) {
-                additionalOutput += "\n✨ Item First Discovery";
-            }
-
-            output.textContent = additionalOutput;
-            output.style.display = 'block';
-            loadingIndicator.style.display = 'none';
         });
     </script>
 </body>
