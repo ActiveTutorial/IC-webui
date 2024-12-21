@@ -95,6 +95,17 @@
             font-size: 1rem;
             color: #aaa;
         }
+
+        .output {
+            margin-top: 1rem;
+            text-align: left;
+            background: #444;
+            padding: 1rem;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-size: 1rem;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -107,8 +118,8 @@
         <button id="combineBtn">Combine</button>
 
         <div id="resultContainer"></div>
-
         <div id="loading" class="loading" style="display: none;">Loading...</div>
+        <div id="output" class="output" style="display: none;"></div>
     </div>
 
     <script>
@@ -119,95 +130,93 @@
         async function getResponse(url, headers) {
             try {
                 const response = await fetch(url, { headers });
+                if (!response.ok) throw new Error(response.status);
                 return { status: response.status, data: await response.json() };
             } catch (error) {
-                console.error('Error fetching response:', error);
-                return { status: null, data: null };
+                console.error(error);
+                return { status: error.message, data: null };
             }
         }
 
         document.getElementById('combineBtn').addEventListener('click', async () => {
-            const firstItemInput = document.getElementById('firstItem').value.trim();
-            const secondItemInput = document.getElementById('secondItem').value.trim();
+            const firstItem = document.getElementById('firstItem').value.trim();
+            const secondItem = document.getElementById('secondItem').value.trim();
             const resultContainer = document.getElementById('resultContainer');
+            const output = document.getElementById('output');
             const loadingIndicator = document.getElementById('loading');
 
-            if (!firstItemInput || !secondItemInput) {
+            if (!firstItem || !secondItem) {
                 alert('Please enter both items to combine!');
                 return;
             }
 
-            // Reset UI
             resultContainer.innerHTML = '';
+            output.style.display = 'none';
             loadingIndicator.style.display = 'block';
 
-            // Format and encode inputs
-            let [firstItem, secondItem] = [firstItemInput, secondItemInput].sort();
-            firstItem = formatItem(firstItem);
-            secondItem = formatItem(secondItem);
-            const encodedFirst = encodeURIComponent(firstItem);
-            const encodedSecond = encodeURIComponent(secondItem);
-
-            // Construct URLs
-            const pairUrl = `https://neal.fun/api/infinite-craft/pair?ref=app&first=${encodedFirst}&second=${encodedSecond}`;
-            const checkUrl = `https://neal.fun/api/infinite-craft/check?ref=app&first=${encodedFirst}&second=${encodedSecond}&result=A`;
-
-            // Define headers
+            const [formattedFirst, formattedSecond] = [formatItem(firstItem), formatItem(secondItem)].sort();
+            const encodedFirst = encodeURIComponent(formattedFirst);
+            const encodedSecond = encodeURIComponent(formattedSecond);
             const headers = {
                 "sec-ch-ua-platform": "Android",
-                "User-Agent": "Mozilla/5.0 (Linux; Android 13; Build/TKQ1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131 Mobile Safari/537.36"
+                "User-Agent": "Mozilla/5.0"
             };
 
-            try {
-                // Check if first discovery
-                const checkResponse = await getResponse(checkUrl, headers);
-                const isFirstDiscovery = checkResponse.status === 500;
+            const checkUrl = `https://neal.fun/api/infinite-craft/check?ref=app&first=${encodedFirst}&second=${encodedSecond}&result=A`;
+            const pairUrl = `https://neal.fun/api/infinite-craft/pair?ref=app&first=${encodedFirst}&second=${encodedSecond}`;
 
-                // Get pairing result
-                const pairResponse = await getResponse(pairUrl, headers);
-                if (!pairResponse.data) {
-                    throw new Error('Failed to fetch pairing result.');
-                }
+            const checkResponse = await getResponse(checkUrl, headers);
+            const isFirstDiscovery = checkResponse.status === 500;
 
-                const { result, emoji, isNew } = pairResponse.data;
+            const pairResponse = await getResponse(pairUrl, headers);
+            if (!pairResponse.data) {
+                alert('Failed to get a valid response. Please try again.');
+                loadingIndicator.style.display = 'none';
+                return;
+            }
 
-                // Create result box
-                const resultBox = document.createElement('div');
-                resultBox.className = 'result-box';
-                if (isNew) resultBox.classList.add('is-new');
+            const { result, emoji, isNew } = pairResponse.data;
 
-                const emojiSpan = document.createElement('span');
-                emojiSpan.className = 'emoji';
-                emojiSpan.textContent = emoji;
+            const resultBox = document.createElement('div');
+            resultBox.className = 'result-box';
+            if (isNew) resultBox.classList.add('is-new');
 
-                const textSpan = document.createElement('span');
-                textSpan.className = 'text';
-                textSpan.textContent = `${firstItem} + ${secondItem} = ${result}`;
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'emoji';
+            emojiSpan.textContent = emoji;
 
-                resultBox.appendChild(emojiSpan);
-                resultBox.appendChild(textSpan);
-                resultContainer.appendChild(resultBox);
+            const textSpan = document.createElement('span');
+            textSpan.className = 'text';
+            textSpan.textContent = `${formattedFirst} + ${formattedSecond} = ${result}`;
 
-                // Add additional messages
-                if (result === "Nothing") {
-                    if (checkResponse.status === 500) {
-                        resultContainer.innerHTML += '<p>🛑 No Result or Censored.</p>';
+            resultBox.appendChild(emojiSpan);
+            resultBox.appendChild(textSpan);
+
+            resultContainer.appendChild(resultBox);
+
+            let additionalOutput = `${formattedFirst} + ${formattedSecond} = ${result}\nEmoji: ${emoji}`;
+            if (result === "Nothing") {
+                if (checkResponse.status === 500) {
+                    additionalOutput += "\n🛑 No Result or Censored.";
+                } else {
+                    const checkValid = checkResponse.data?.valid;
+                    if (checkValid) {
+                        additionalOutput += "\n📌 Please share the recipe and output to the infinite craft Discord Server!!!!!!.";
                     } else {
-                        resultContainer.innerHTML += '<p>⚠️ Manual Override or "Nothing" Outputted by LLM.</p>';
+                        additionalOutput += "\n⚠️ Manual Override or 'Nothing' Outputted by LLM.";
                     }
                 }
-                if (isFirstDiscovery && checkResponse.status !== 500) {
-                    resultContainer.innerHTML += '<p>➕ Recipe First Discovery</p>';
-                }
-                if (isNew) {
-                    resultContainer.innerHTML += '<p>✨ Item First Discovery</p>';
-                }
-            } catch (error) {
-                console.error(error);
-                alert('An error occurred. Please try again.');
-            } finally {
-                loadingIndicator.style.display = 'none';
             }
+            if (isFirstDiscovery && checkResponse.status !== 500) {
+                additionalOutput += "\n➕ Recipe First Discovery";
+            }
+            if (isNew) {
+                additionalOutput += "\n✨ Item First Discovery";
+            }
+
+            output.textContent = additionalOutput;
+            output.style.display = 'block';
+            loadingIndicator.style.display = 'none';
         });
     </script>
 </body>
