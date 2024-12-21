@@ -21,9 +21,26 @@
     </div>
 
     <script>
+        function formatItem(item) {
+            return item.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        }
+
+        async function getResponse(url, headers) {
+            try {
+                const response = await fetch(url, { headers });
+                if (!response.ok) {
+                    throw new Error(`HTTP status ${response.status}`);
+                }
+                return [response.status, await response.json()];
+            } catch (error) {
+                console.error("An error occurred:", error);
+                return [null, null];
+            }
+        }
+
         document.getElementById('combineBtn').addEventListener('click', async () => {
-            const firstItem = document.getElementById('firstItem').value;
-            const secondItem = document.getElementById('secondItem').value;
+            const firstItem = document.getElementById('firstItem').value.trim();
+            const secondItem = document.getElementById('secondItem').value.trim();
             const resultContainer = document.getElementById('resultContainer');
             const loadingIndicator = document.getElementById('loading');
 
@@ -35,33 +52,78 @@
             resultContainer.innerHTML = '';
             loadingIndicator.style.display = 'block';
 
-            try {
-                const response = await fetch(`https://neal.fun/api/infinite-craft/pair?ref=app&first=${encodeURIComponent(firstItem)}&second=${encodeURIComponent(secondItem)}`);
-                const data = await response.json();
+            // Sort and format items
+            const sortedItems = [firstItem, secondItem].sort();
+            const [formattedFirst, formattedSecond] = sortedItems.map(formatItem);
 
+            // URL encode the items
+            const encodedFirst = encodeURIComponent(formattedFirst);
+            const encodedSecond = encodeURIComponent(formattedSecond);
+
+            // Construct URLs
+            const pairUrl = `https://neal.fun/api/infinite-craft/pair?ref=app&first=${encodedFirst}&second=${encodedSecond}`;
+            const checkUrl = `https://neal.fun/api/infinite-craft/check?ref=app&first=${encodedFirst}&second=${encodedSecond}&result=A`;
+
+            const headers = {
+                "sec-ch-ua-platform": "Android",
+                "User-Agent": "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Mobile Safari/537.36"
+            };
+
+            // Check if this is a first discovery
+            const [checkStatus] = await getResponse(checkUrl, headers);
+            const isFirstDiscovery = (checkStatus === 500);
+
+            // Get the pairing result
+            const [pairStatus, pairData] = await getResponse(pairUrl, headers);
+            if (!pairData) {
+                alert("Failed to get a valid response. Please try again.");
                 loadingIndicator.style.display = 'none';
-
-                const resultBox = document.createElement('div');
-                resultBox.className = 'result-box';
-                if (data.isNew) resultBox.classList.add('is-new');
-
-                const emojiSpan = document.createElement('span');
-                emojiSpan.className = 'emoji';
-                emojiSpan.textContent = data.emoji;
-
-                const textSpan = document.createElement('span');
-                textSpan.className = 'text';
-                textSpan.textContent = data.result;
-
-                resultBox.appendChild(emojiSpan);
-                resultBox.appendChild(textSpan);
-
-                resultContainer.appendChild(resultBox);
-            } catch (error) {
-                loadingIndicator.style.display = 'none';
-                alert('An error occurred while fetching the result.');
-                console.error(error);
+                return;
             }
+
+            const { result = "Unknown", emoji = "", isNew = false } = pairData;
+
+            // Prepare the main output
+            let output = `${formattedFirst} + ${formattedSecond} = ${result}<br>Emoji: ${emoji}`;
+
+            // Handle additional messages based on conditions
+            if (result === "Nothing") {
+                const [status, checkData] = await getResponse(checkUrl, headers);
+                if (status === 500) {
+                    output += "<br>🛑 No Result or Censored.";
+                } else if (checkData && checkData.valid) {
+                    output += "<br>📌 Please share the recipe and output to the infinite craft Discord Server!!!!!!.";
+                } else {
+                    output += "<br>⚠️ Manual Override or 'Nothing' Outputted by LLM.";
+                }
+            }
+
+            if (isFirstDiscovery && pairStatus !== 500) {
+                output += "<br>➕ Recipe First Discovery";
+            }
+
+            if (isNew) {
+                output += "<br>✨ Item First Discovery";
+            }
+
+            // Display the result
+            const resultBox = document.createElement('div');
+            resultBox.className = 'result-box';
+            if (isNew) resultBox.classList.add('is-new');
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'emoji';
+            emojiSpan.textContent = emoji;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'text';
+            textSpan.innerHTML = output;
+
+            resultBox.appendChild(emojiSpan);
+            resultBox.appendChild(textSpan);
+
+            resultContainer.appendChild(resultBox);
+            loadingIndicator.style.display = 'none';
         });
     </script>
 </body>
