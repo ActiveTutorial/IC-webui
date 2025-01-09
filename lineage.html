@@ -48,7 +48,7 @@
                 if (!trimmedLine) return null;
                 let [ingredients, result] = trimmedLine.split("=");
                 if (ingredients && result) {
-                    ingredients = ingredients.split("+").map(i => i.trim());
+                    ingredients = ingredients.split(" + ").map(i => i.trim());
                     result = result.trim();
                     return [...ingredients, result];
                 }
