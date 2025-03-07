@@ -63,7 +63,21 @@
                 try {
                     const compressedData = new Uint8Array(event.target.result);
                     const decompressedData = pako.inflate(compressedData, { to: 'string' });
-                    const prettyJson = JSON.stringify(JSON.parse(decompressedData), null, 4);
+                    const originalJson = JSON.parse(decompressedData);
+                    
+                    const transformedJson = {
+                        meta: {}
+                    };
+                    
+                    for (const key in originalJson) {
+                        if (key === 'items') {
+                            transformedJson['elements'] = originalJson[key];
+                        } else {
+                            transformedJson['meta'][key] = originalJson[key];
+                        }
+                    }
+                    
+                    const prettyJson = JSON.stringify(transformedJson, null, 4);
                     document.getElementById('output').textContent = prettyJson;
                     
                     const blob = new Blob([prettyJson], { type: 'application/json' });
