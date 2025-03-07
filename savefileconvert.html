@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>.ic to .json Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        input, button {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            border: 1px solid #333;
+            padding: 10px;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #333;
+        }
+        pre {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            padding: 10px;
+            overflow: auto;
+            max-height: 300px;
+            text-align: left;
+            white-space: pre-wrap;
+        }
+        a {
+            display: block;
+            margin-top: 10px;
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload Gzip File</h2>
+    <input type="file" id="fileInput" accept=".gz,.ic">
+    <button onclick="processFile()">Convert</button>
+    <pre id="output">{ "Extracted JSON will appear here" }</pre>
+    <a id="downloadLink" style="display:none" download="decompressed.json">Download Save File</a>
+
+    <script>
+        function processFile() {
+            const fileInput = document.getElementById('fileInput').files[0];
+            if (!fileInput) {
+                alert('Please select a file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const compressedData = new Uint8Array(event.target.result);
+                    const decompressedData = pako.inflate(compressedData, { to: 'string' });
+                    const prettyJson = JSON.stringify(JSON.parse(decompressedData), null, 4);
+                    document.getElementById('output').textContent = prettyJson;
+                    
+                    const blob = new Blob([prettyJson], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = url;
+                    downloadLink.style.display = 'block';
+                    downloadLink.textContent = 'Download Save File';
+                } catch (error) {
+                    alert('Error decompressing file: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(fileInput);
+        }
+    </script>
+</body>
+</html>
