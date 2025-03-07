@@ -51,6 +51,18 @@
     <a id="downloadLink" style="display:none" download="decompressed.json">Download Save File</a>
 
     <script>
+        function transformJson(parsedJson) {
+            let transformed = { meta: {} };
+            for (const key in parsedJson) {
+                if (key === "items") {
+                    transformed["elements"] = parsedJson[key];
+                } else {
+                    transformed.meta[key] = parsedJson[key];
+                }
+            }
+            return transformed;
+        }
+
         function processFile() {
             const fileInput = document.getElementById('fileInput').files[0];
             if (!fileInput) {
@@ -63,20 +75,8 @@
                 try {
                     const compressedData = new Uint8Array(event.target.result);
                     const decompressedData = pako.inflate(compressedData, { to: 'string' });
-                    const originalJson = JSON.parse(decompressedData);
-                    
-                    const transformedJson = {
-                        meta: {}
-                    };
-                    
-                    for (const key in originalJson) {
-                        if (key === 'items') {
-                            transformedJson['elements'] = originalJson[key];
-                        } else {
-                            transformedJson['meta'][key] = originalJson[key];
-                        }
-                    }
-                    
+                    const parsedJson = JSON.parse(decompressedData);
+                    const transformedJson = transformJson(parsedJson);
                     const prettyJson = JSON.stringify(transformedJson, null, 4);
                     document.getElementById('output').textContent = prettyJson;
                     
